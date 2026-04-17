@@ -1,62 +1,71 @@
 ---
 name: jenkins-build-status
-description: Use when the user wants the current Jenkins build or job status, a summary of multiple Jenkins items, failing jobs, running builds, or recent build health. Prefer the configured Jenkins MCP tools when they are available; fall back to the bundled status script when MCP is unavailable in the current session or when a compact summary across many jobs is faster.
+description: Jenkins의 현재 빌드 상태, 실행 중인 잡, 실패한 잡, 여러 잡의 요약 상태가 필요할 때 사용한다. 현재 세션에 구성된 Jenkins MCP 툴이 있으면 우선 사용하고, 세션에서 MCP를 바로 쓸 수 없거나 여러 잡을 짧게 요약해야 하면 포함된 상태 조회 스크립트로 폴백한다.
 ---
 
 # Jenkins Build Status
 
-Use this skill to inspect Jenkins job health without changing Jenkins state.
+Jenkins 상태를 읽기 전용으로 확인할 때 사용하는 스킬이다.
 
-## First-run requirement
+## 빠른 시작
 
-Before any status lookup, check whether the `jenkins` MCP server is available in the current session.
+1. 현재 세션에 `jenkins` MCP 서버가 있는지 먼저 확인한다.
+2. 없으면 Jenkins URL, 계정, 토큰 또는 비밀번호를 사용자 인터랙션으로 입력받아 연결한다.
+3. 연결이 되면 MCP 기반으로 상태를 조회한다.
+4. MCP가 현재 세션에서 보이지 않으면 `scripts/jenkins_job_status.py`로 폴백한다.
 
-1. Check MCP availability first.
-2. If the `jenkins` MCP server is missing, connect it before continuing.
-3. Required connection values such as Jenkins URL, username, API token, or password must be gathered through user interaction at runtime.
-4. Do not hardcode secrets in the skill, examples, or repository files.
+## 최초 1회 필수 규칙
 
-## Workflow
+상태 조회를 시작하기 전에 반드시 `jenkins` MCP 서버 존재 여부를 확인한다.
 
-1. Confirm the request is status-only.
-2. Check whether the `jenkins` MCP server is available in the current session.
-3. If it is missing, ask the user for the required connection values and connect Jenkins MCP first.
-4. Prefer Jenkins MCP tools if the `jenkins` MCP server is available in the current session.
-5. Use the bundled script when:
-   - MCP tools are not exposed in the session
-   - the user wants a compact summary across many jobs
-   - you need a quick filter by name or status
-6. Return a concise summary first:
-   - running jobs
-   - failed or unstable jobs
-   - disabled jobs
-   - notable last build numbers and timestamps
+1. MCP 연결 여부를 먼저 확인한다.
+2. `jenkins` MCP 서버가 없으면 조회 전에 연결부터 수행한다.
+3. Jenkins URL, 사용자명, API 토큰 또는 비밀번호는 런타임 사용자 인터랙션으로 수집한다.
+4. 스킬 본문, 예시, 저장소 파일에는 실제 시크릿을 하드코딩하지 않는다.
 
-## MCP-first guidance
+## 동작 절차
 
-When Jenkins MCP tools are available, prefer read-only tools such as:
+1. 요청이 상태 조회 전용인지 확인한다.
+2. 현재 세션에 `jenkins` MCP 서버가 있는지 확인한다.
+3. MCP가 없으면 필요한 연결 값을 사용자에게 받아 먼저 Jenkins MCP를 연결한다.
+4. MCP가 있으면 읽기 전용 Jenkins MCP 툴을 우선 사용한다.
+5. 아래 조건이면 번들 스크립트로 폴백한다.
+   - 현재 세션에 MCP 툴이 노출되지 않음
+   - 여러 잡을 짧은 표 형태로 요약해야 함
+   - 이름 또는 상태 필터로 빠르게 조회하는 편이 효율적임
+6. 응답은 요약부터 먼저 준다.
+   - 실행 중인 잡
+   - 실패 또는 불안정한 잡
+   - 비활성화된 잡
+   - 눈여겨볼 최근 빌드 번호와 시각
+
+## MCP 우선 사용 규칙
+
+Jenkins MCP 툴이 보이면 아래 읽기 전용 툴을 우선 사용한다.
 
 - `get_all_items`
 - `query_items`
 - `get_build`
 - `get_running_builds`
-- `get_build_console_output` only when the user explicitly asks for logs or failure details
+- `get_build_console_output`
 
-Do not trigger builds or stop builds unless the user explicitly asks.
+`get_build_console_output`은 사용자가 로그나 실패 원인을 명시적으로 요청했을 때만 사용한다.
 
-## Script fallback
+사용자가 명시적으로 요청하지 않는 한 빌드 실행이나 중단은 하지 않는다.
 
-Use `scripts/jenkins_job_status.py` for table-style summaries.
+## 스크립트 폴백
 
-Required environment variables:
+표 형태의 상태 요약이 필요하면 `scripts/jenkins_job_status.py`를 사용한다.
+
+필수 환경변수:
 
 - `JENKINS_URL`
 - `JENKINS_USERNAME`
 - `JENKINS_PASSWORD`
 
-These values must come from interactive user input or the active shell environment at runtime. Do not commit real values.
+이 값들은 런타임 사용자 입력 또는 현재 셸 환경에서 받아야 한다. 실제 값은 커밋하지 않는다.
 
-Common usage:
+사용 예시:
 
 ```bash
 python3 skills/jenkins-build-status/scripts/jenkins_job_status.py
@@ -65,14 +74,14 @@ python3 skills/jenkins-build-status/scripts/jenkins_job_status.py --only failing
 python3 skills/jenkins-build-status/scripts/jenkins_job_status.py --only running --limit 20
 ```
 
-## Output shape
+## 응답 형식
 
-Keep the answer compact. Summarize first, then list the most relevant jobs with:
+응답은 짧고 바로 읽히게 유지한다. 먼저 전체 요약을 주고, 필요한 잡만 아래 항목으로 정리한다.
 
-- job name
-- current state
-- last build number
-- last build result
-- build age
+- 잡 이름
+- 현재 상태
+- 최근 빌드 번호
+- 최근 빌드 결과
+- 경과 시간
 
-If there are no failures or running jobs, state that explicitly.
+실패 잡이나 실행 중인 잡이 없으면 그 사실을 명확히 적는다.

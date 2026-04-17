@@ -1,14 +1,28 @@
 # wassup_hudson
 
-Read-only Jenkins status helpers for Codex-style MCP workflows.
+Codex 스타일 워크플로우에서 Jenkins 상태를 읽기 전용으로 조회하기 위한 스킬과 보조 스크립트 모음입니다.
 
-## What this repository contains
+## 빠른 시작
 
-- A Codex skill for Jenkins build and job status lookup
-- A read-only fallback script for compact Jenkins summaries
-- A safe sharing baseline with no real credentials committed
+1. `jenkins` MCP 서버가 현재 세션에 있는지 먼저 확인합니다.
+2. 없으면 Jenkins URL, 계정, 토큰 또는 비밀번호를 사용자 인터랙션으로 입력받아 MCP를 연결합니다.
+3. 상태 조회만 필요하면 스킬에 자연어로 요청합니다.
+4. MCP를 바로 쓸 수 없으면 `.env`를 준비한 뒤 폴백 스크립트로 조회합니다.
 
-## Repository layout
+예시:
+
+```bash
+cp examples/.env.example .env
+```
+
+```bash
+set -a
+source ./.env
+set +a
+python3 skills/jenkins-build-status/scripts/jenkins_job_status.py --only running
+```
+
+## 저장소 구성
 
 ```text
 skills/
@@ -20,29 +34,35 @@ examples/
   .env.example
 ```
 
-## First-run rule
+## 포함 내용
 
-The skill requires this behavior:
+- Jenkins 빌드/잡 상태를 조회하는 Codex 스킬
+- 여러 잡 상태를 빠르게 요약하는 읽기 전용 폴백 스크립트
+- 실제 시크릿을 커밋하지 않기 위한 예시 환경파일
 
-1. Check whether the `jenkins` MCP server exists in the current session.
-2. If it is missing, connect Jenkins MCP before doing status lookups.
-3. Jenkins URL, username, token, or password must be collected interactively at runtime.
-4. Do not hardcode secrets in repository files.
+## 최초 1회 동작 규칙
 
-## Suggested local setup
+이 저장소의 스킬은 아래 순서로 동작하는 것을 전제로 합니다.
 
-Create a local `.env` from `examples/.env.example` and fill in your own values.
+1. 현재 세션에 `jenkins` MCP 서버가 있는지 확인합니다.
+2. 없으면 상태 조회 전에 Jenkins MCP를 먼저 연결합니다.
+3. Jenkins URL, 사용자명, 토큰 또는 비밀번호는 런타임에 사용자 인터랙션으로 수집합니다.
+4. 저장소 파일, 스킬 본문, 예제에는 실제 시크릿을 넣지 않습니다.
+
+## 로컬 사용 방법
+
+`examples/.env.example`를 복사해서 `.env`를 만든 뒤 자신의 Jenkins 접속 정보를 넣습니다.
 
 ```bash
 cp examples/.env.example .env
 ```
 
-Then either:
+그 다음 두 가지 방식 중 하나를 사용합니다.
 
-- connect a `jenkins` MCP server in your Codex client using runtime-provided values
-- or export the same variables and run the fallback script directly
+- Codex 클라이언트에서 `jenkins` MCP 서버를 연결한 뒤 스킬에 자연어로 요청
+- 동일한 환경변수를 export 한 뒤 폴백 스크립트를 직접 실행
 
-## Fallback script usage
+## 폴백 스크립트 사용 예시
 
 ```bash
 set -a
@@ -54,8 +74,14 @@ python3 skills/jenkins-build-status/scripts/jenkins_job_status.py --only failing
 python3 skills/jenkins-build-status/scripts/jenkins_job_status.py --match dcr
 ```
 
-## Safety
+## 상태 해석
 
-- This repository is read-only by design for build status lookup
-- It should not trigger builds unless you intentionally extend it
-- Keep real Jenkins credentials outside version control
+- `RUNNING`: 현재 빌드 중
+- `SUCCESS`, `FAILURE`, `UNSTABLE`, `ABORTED`, `NOT_BUILT`: 최근 빌드가 완료된 상태
+- `DISABLED`: 비활성화된 잡
+
+## 안전 원칙
+
+- 기본 목적은 읽기 전용 상태 조회입니다.
+- 사용자가 명시적으로 요청하지 않는 한 빌드 실행이나 중단을 하지 않습니다.
+- 실제 Jenkins 자격증명은 버전 관리 밖에서 관리해야 합니다.

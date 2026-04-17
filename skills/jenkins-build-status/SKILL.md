@@ -38,6 +38,11 @@ Jenkins 상태를 읽기 전용으로 확인할 때 사용하는 스킬이다.
    - 실패 또는 불안정한 잡
    - 비활성화된 잡
    - 눈여겨볼 최근 빌드 번호와 시각
+7. 실패한 잡이 있으면 연쇄 확인이 필요한 관련 잡까지 함께 본다.
+   - 동일 서비스군으로 보이는 잡
+   - 동일 배치/프론트/백엔드 계열로 보이는 잡
+   - 이름 패턴상 같이 움직일 가능성이 높은 잡
+8. 실패 리포트에는 실패 잡만 나열하지 말고, 관련 잡 상태를 함께 묶어서 제시한다.
 
 ## MCP 우선 사용 규칙
 
@@ -74,6 +79,12 @@ python3 skills/jenkins-build-status/scripts/jenkins_job_status.py --only failing
 python3 skills/jenkins-build-status/scripts/jenkins_job_status.py --only running --limit 20
 ```
 
+실패 리포트 예시:
+
+```bash
+python3 skills/jenkins-build-status/scripts/jenkins_job_status.py --only failing --include-related
+```
+
 ## 응답 형식
 
 응답은 짧고 바로 읽히게 유지한다. 먼저 전체 요약을 주고, 필요한 잡만 아래 항목으로 정리한다.
@@ -83,5 +94,11 @@ python3 skills/jenkins-build-status/scripts/jenkins_job_status.py --only running
 - 최근 빌드 번호
 - 최근 빌드 결과
 - 경과 시간
+
+실패한 잡이 있으면 추가로 아래 내용을 포함한다.
+
+- 연쇄 확인이 필요한 관련 잡 목록
+- 관련 잡의 현재 상태
+- 같은 계열에서 동시에 깨진 잡이 있는지 여부
 
 실패 잡이나 실행 중인 잡이 없으면 그 사실을 명확히 적는다.

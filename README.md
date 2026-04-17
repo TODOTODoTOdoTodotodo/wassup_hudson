@@ -30,6 +30,7 @@ skill-installer로 https://github.com/TODOTODoTOdoTodotodo/wassup_hudson.git 에
 - `dev-dcr 관련 잡 상태 정리해줘`
 - `qa-kube 계열 현재 빌드 상태 보여줘`
 - `최근에 불안정하거나 중단된 잡 알려줘`
+- `실패한 잡 기준으로 같이 확인해야 할 연관 잡까지 포함해서 리포트해줘`
 
 실행 스킬 자연어 예시:
 
@@ -127,6 +128,7 @@ python3 skills/jenkins-build-status/scripts/jenkins_job_status.py
 python3 skills/jenkins-build-status/scripts/jenkins_job_status.py --only running
 python3 skills/jenkins-build-status/scripts/jenkins_job_status.py --only failing --limit 20
 python3 skills/jenkins-build-status/scripts/jenkins_job_status.py --match dcr
+python3 skills/jenkins-build-status/scripts/jenkins_job_status.py --only failing --include-related
 ```
 
 실행 예시:

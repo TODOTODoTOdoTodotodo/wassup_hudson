@@ -6,12 +6,35 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import urllib.parse
 import urllib.request
 from base64 import b64encode
 from datetime import datetime, timezone
 from typing import Any
+
+
+ENV_TOKENS = {"dev", "qa", "stg", "prod", "loc", "local"}
+GENERIC_TOKENS = {
+    "kube",
+    "job",
+    "jobs",
+    "batch",
+    "bat",
+    "front",
+    "backend",
+    "back",
+    "api",
+    "admin",
+    "web",
+    "service",
+    "worker",
+    "fargate",
+    "mo",
+    "pc",
+}
+FAIL_STATES = {"FAILURE", "UNSTABLE", "ABORTED"}
 
 
 def build_request(url: str, username: str, password: str) -> urllib.request.Request:
@@ -85,6 +108,72 @@ def matches_filter(job: dict[str, Any], match: str | None, only: str) -> bool:
     return True
 
 
+def tokenize_job_name(name: str) -> list[str]:
+    tokens = [token for token in re.split(r"[^a-z0-9]+", name.lower()) if token]
+    cleaned: list[str] = []
+    for token in tokens:
+        if token in ENV_TOKENS or token in GENERIC_TOKENS:
+            continue
+        if token.isdigit():
+            continue
+        cleaned.append(token)
+    return cleaned
+
+
+def is_related_job(source: dict[str, Any], candidate: dict[str, Any]) -> bool:
+    if source["name"] == candidate["name"]:
+        return False
+    source_tokens = source["tokens"]
+    candidate_tokens = candidate["tokens"]
+    if not source_tokens or not candidate_tokens:
+        return False
+    overlap = len(set(source_tokens) & set(candidate_tokens))
+    if overlap >= 2:
+        return True
+    if source_tokens[0] == candidate_tokens[0] and overlap >= 1:
+        return True
+    return False
+
+
+def state_rank(state: str) -> int:
+    order = {
+        "RUNNING": 0,
+        "FAILURE": 1,
+        "UNSTABLE": 2,
+        "ABORTED": 3,
+        "SUCCESS": 4,
+        "DISABLED": 5,
+        "NOT_BUILT": 6,
+        "UNKNOWN": 7,
+    }
+    return order.get(state, 99)
+
+
+def print_failure_report(jobs: list[dict[str, Any]], limit: int) -> None:
+    failing_jobs = [job for job in jobs if job["state"] in FAIL_STATES][: max(limit, 0)]
+    if not failing_jobs:
+        return
+
+    print()
+    print("FAILURE_REPORT")
+    for job in failing_jobs:
+        related = [candidate for candidate in jobs if is_related_job(job, candidate)]
+        related.sort(key=lambda item: (state_rank(item["state"]), item["name"]))
+        related = related[:5]
+        print(
+            f"- {job['name']} state={job['state']} build={job['last_number']} "
+            f"result={job['last_result']} age={job['age']}"
+        )
+        if related:
+            related_summary = ", ".join(
+                f"{item['name']}[{item['state']}/{item['last_number']}]"
+                for item in related
+            )
+            print(f"  related: {related_summary}")
+        else:
+            print("  related: none")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--match", help="Substring filter for job names")
@@ -95,6 +184,11 @@ def main() -> int:
         help="Status filter",
     )
     parser.add_argument("--limit", type=int, default=50, help="Maximum rows to print")
+    parser.add_argument(
+        "--include-related",
+        action="store_true",
+        help="When failures exist, include a chained related-job report",
+    )
     args = parser.parse_args()
 
     jenkins_url = os.environ.get("JENKINS_URL")
@@ -128,6 +222,7 @@ def main() -> int:
             "age": format_age(last_build.get("timestamp")),
             "url": raw_job.get("url", "-"),
             "building": last_build.get("building", False),
+            "tokens": tokenize_job_name(raw_job.get("name", "-")),
         }
         if job["building"]:
             job["state"] = "RUNNING"
@@ -138,7 +233,7 @@ def main() -> int:
     filtered = filtered[: max(args.limit, 0)]
 
     running = sum(1 for job in jobs if job["state"] == "RUNNING")
-    failing = sum(1 for job in jobs if job["state"] in {"FAILURE", "UNSTABLE", "ABORTED"})
+    failing = sum(1 for job in jobs if job["state"] in FAIL_STATES)
     disabled = sum(1 for job in jobs if job["state"] == "DISABLED")
 
     print(f"total={len(jobs)} running={running} failing={failing} disabled={disabled}")
@@ -148,6 +243,8 @@ def main() -> int:
             f"{job['name'][:40]:40} {job['state'][:10]:10} {str(job['last_number']):>7} "
             f"{str(job['last_result'])[:10]:10} {job['age']:>6}"
         )
+    if args.include_related or args.only == "failing":
+        print_failure_report(jobs, args.limit)
     return 0
 
 

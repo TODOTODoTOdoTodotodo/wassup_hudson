@@ -23,15 +23,19 @@ skill-installer로 https://github.com/TODOTODoTOdoTodotodo/wassup_hudson.git 에
 
 설치 후에는 현재 Codex CLI 세션을 반드시 재시작해야 새 스킬이 반영됩니다.
 
-자연어 요청 예시:
+상태 조회 스킬 자연어 예시:
 
 - `현재 Jenkins에서 실행 중인 빌드 알려줘`
 - `실패한 Jenkins 잡만 요약해줘`
 - `dev-dcr 관련 잡 상태 정리해줘`
 - `qa-kube 계열 현재 빌드 상태 보여줘`
 - `최근에 불안정하거나 중단된 잡 알려줘`
+
+실행 스킬 자연어 예시:
+
 - `dev-user-api 잡 실행해줘`
 - `dev-batch-job 를 branch=develop 파라미터로 실행해줘`
+- `dev-admin-api 빌드 실행 전에 가능한지 먼저 확인해줘`
 
 예시:
 

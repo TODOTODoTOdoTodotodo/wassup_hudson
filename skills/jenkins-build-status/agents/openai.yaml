@@ -1,0 +1,3 @@
+display_name: Jenkins Build Status
+short_description: Read-only Jenkins build and job status summaries.
+default_prompt: Summarize current Jenkins job status, highlight running and failing items, and keep the answer compact.
